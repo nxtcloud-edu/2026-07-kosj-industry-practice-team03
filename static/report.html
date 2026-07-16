@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세종시 생활 인프라 신고</title>
+<style>
+  :root { --primary:#2563eb; --bg:#f4f6fa; --card:#fff; --text:#1e293b; --muted:#64748b; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+         background:var(--bg); color:var(--text); max-width:480px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.15rem; padding:8px 0 16px; }
+  .card { background:var(--card); border-radius:12px; padding:16px; margin-bottom:14px;
+          box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
+  select, input[type=text] { width:100%; padding:10px; border:1px solid #cbd5e1;
+          border-radius:8px; font-size:1rem; background:#fff; }
+  .photo-btn { display:block; width:100%; padding:22px 0; border:2px dashed #94a3b8;
+          border-radius:10px; text-align:center; color:var(--muted); cursor:pointer; }
+  #preview { width:100%; border-radius:10px; margin-top:8px; display:none; }
+  .gps { font-size:.8rem; color:var(--muted); margin-top:6px; }
+  .consent { display:flex; gap:8px; align-items:flex-start; font-size:.85rem; margin-top:12px; }
+  button.submit { width:100%; padding:14px; margin-top:14px; background:var(--primary);
+          color:#fff; border:none; border-radius:10px; font-size:1.05rem; font-weight:600; }
+  button.submit:disabled { background:#94a3b8; }
+  #result { display:none; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.8rem;
+          color:#fff; background:var(--primary); margin-left:6px; }
+  .row { display:flex; justify-content:space-between; padding:5px 0; font-size:.92rem; }
+  .row span:first-child { color:var(--muted); }
+  .lookup { display:flex; gap:8px; }
+  .lookup input { flex:1; }
+  .lookup button { padding:0 16px; border:none; border-radius:8px; background:#334155; color:#fff; }
+  #lookupResult { margin-top:10px; font-size:.92rem; }
+</style>
+</head>
+<body>
+<h1>세종시 생활 인프라 신고 <span style="font-weight:400;color:var(--muted);font-size:.8rem">MVP</span></h1>
+
+<div class="card" id="form">
+  <label>사진 (촬영 또는 앨범)</label>
+  <label class="photo-btn" id="photoBtn">탭하여 사진 첨부
+    <input type="file" id="photo" accept="image/*" capture="environment" hidden>
+  </label>
+  <img id="preview" alt="미리보기">
+
+  <label>민원 종류 (선택 시 AI 분류에 참고됩니다)</label>
+  <select id="category">
+    <option value="">선택 안 함 — AI 자동 분류</option>
+    <option>도로 파손</option>
+    <option>쓰레기 무단투기</option>
+    <option>가로등 고장</option>
+    <option>기타</option>
+  </select>
+  <input type="text" id="categoryEtc" placeholder="기타 내용을 적어주세요" style="display:none;margin-top:6px">
+
+  <div class="gps" id="gps">위치 확인 중…</div>
+
+  <div class="consent">
+    <input type="checkbox" id="consent">
+    <span>위치정보·사진의 수집 및 민원 처리 목적 이용에 동의합니다. 신고자 식별 정보는 수집하지 않으며 처리 상태는 신고 번호로 조회합니다.</span>
+  </div>
+
+  <button class="submit" id="submit" disabled>신고하기</button>
+</div>
+
+<div class="card" id="result">
+  <div style="font-weight:700;margin-bottom:8px">접수 결과 <span class="badge" id="rGrade"></span></div>
+  <div class="row"><span>신고 번호</span><b id="rId"></b></div>
+  <div class="row"><span>AI 분류</span><span id="rCat"></span></div>
+  <div class="row"><span>우선순위 점수</span><span id="rScore"></span></div>
+  <div class="row"><span>담당 부서</span><span id="rDept"></span></div>
+  <div class="row" id="rDupRow" style="display:none"><span>중복 신고 누적</span><span id="rDup"></span></div>
+  <div style="font-size:.8rem;color:var(--muted);margin-top:8px">신고 번호를 저장해 두면 아래에서 처리 상태를 조회할 수 있습니다.</div>
+</div>
+
+<div class="card">
+  <label>내 신고 처리 상태 조회 (신고 번호)</label>
+  <div class="lookup">
+    <input type="text" id="lookupId" inputmode="numeric" placeholder="예: 1">
+    <button id="lookupBtn">조회</button>
+  </div>
+  <div id="lookupResult"></div>
+</div>
+
+<script>
+let coords = null;
+const $ = id => document.getElementById(id);
+
+navigator.geolocation.getCurrentPosition(
+  p => { coords = {lat:p.coords.latitude, lng:p.coords.longitude};
+         $('gps').textContent = `현재 위치: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`; check(); },
+  () => { coords = {lat:36.4801, lng:127.2571}; // 데모 fallback: 세종 한솔동
+          $('gps').textContent = '위치 권한 없음 — 데모 좌표(한솔동) 사용'; check(); });
+
+$('photo').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) { $('preview').src = URL.createObjectURL(f); $('preview').style.display='block'; }
+  check();
+});
+$('category').addEventListener('change', () =>
+  $('categoryEtc').style.display = $('category').value === '기타' ? 'block' : 'none');
+$('consent').addEventListener('change', check);
+function check() {
+  $('submit').disabled = !($('photo').files[0] && $('consent').checked && coords);
+}
+
+$('submit').addEventListener('click', async () => {
+  $('submit').disabled = true; $('submit').textContent = '접수 중…';
+  const fd = new FormData();
+  fd.append('photo', $('photo').files[0]);
+  fd.append('lat', coords.lat); fd.append('lng', coords.lng);
+  fd.append('consent', 'true');
+  let cat = $('category').value;
+  if (cat === '기타' && $('categoryEtc').value.trim()) cat = $('categoryEtc').value.trim();
+  if (cat) fd.append('category_user', cat);
+  const res = await fetch('/api/complaints', {method:'POST', body:fd});
+  const d = await res.json();
+  $('submit').textContent = '신고하기'; $('submit').disabled = false;
+  if (!res.ok) { alert(d.error); return; }
+  $('result').style.display='block';
+  $('rId').textContent = d.id;
+  $('rCat').textContent = d.category + (d.confidence ? ` (확신도 ${(d.confidence*100).toFixed(0)}%)` : '');
+  $('rScore').textContent = d.priority_score + '점';
+  $('rGrade').textContent = d.priority_grade;
+  $('rDept').textContent = d.department || '검수 대기';
+  if (d.duplicate_merged) {
+    $('rDupRow').style.display='flex';
+    $('rDup').textContent = `기존 신고와 통합 (누적 ${d.report_count}건)`;
+    $('rCat').textContent = d.category; $('rDept').textContent = '기존 건 참조';
+  } else { $('rDupRow').style.display='none'; }
+  $('result').scrollIntoView({behavior:'smooth'});
+});
+
+$('lookupBtn').addEventListener('click', async () => {
+  const id = $('lookupId').value.trim();
+  if (!id) return;
+  const res = await fetch(`/api/complaints/${id}/status`);
+  const d = await res.json();
+  $('lookupResult').textContent = res.ok
+    ? `#${d.id} ${d.category} — 상태: ${d.status} · 등급: ${d.priority_grade} · 누적 ${d.report_count}건`
+    : d.error;
+});
+</script>
+</body>
+</html>

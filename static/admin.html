@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>담당자 관리 — 민원 우선순위</title>
+<style>
+  :root { --bg:#f4f6fa; --card:#fff; --text:#1e293b; --muted:#64748b; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+         background:var(--bg); color:var(--text); padding:20px; }
+  h1 { font-size:1.25rem; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:.85rem; margin-bottom:16px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px;
+          overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  th, td { padding:9px 10px; font-size:.87rem; text-align:left; border-bottom:1px solid #eef1f5; }
+  th { background:#f8fafc; color:var(--muted); font-weight:600; }
+  tr.sel { background:#eff6ff; }
+  tr { cursor:pointer; }
+  .g-긴급 { background:#dc2626; } .g-높음 { background:#f59e0b; }
+  .g-보통 { background:#3b82f6; } .g-낮음 { background:#94a3b8; }
+  .grade { color:#fff; padding:2px 9px; border-radius:999px; font-size:.78rem; }
+  .reason { color:#b91c1c; font-size:.78rem; font-weight:600; }
+  #detail { position:fixed; right:0; top:0; bottom:0; width:390px; background:var(--card);
+            box-shadow:-4px 0 16px rgba(0,0,0,.12); padding:20px; overflow-y:auto; display:none; }
+  #detail img { width:100%; border-radius:8px; }
+  .row { display:flex; justify-content:space-between; padding:6px 0; font-size:.9rem;
+         border-bottom:1px solid #f1f5f9; }
+  .row span:first-child { color:var(--muted); }
+  select, button { padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:.9rem; }
+  button { cursor:pointer; background:#fff; }
+  button.primary { background:#2563eb; color:#fff; border:none; }
+  button.ok { background:#16a34a; color:#fff; border:none; }
+  button.no { background:#dc2626; color:#fff; border:none; }
+  .actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .hist { font-size:.8rem; color:var(--muted); margin-top:14px; }
+  .hist div { padding:3px 0; }
+  #close { float:right; border:none; background:none; font-size:1.2rem; }
+  #metrics { font-size:.85rem; color:var(--muted); margin-bottom:10px; }
+</style>
+</head>
+<body>
+<h1>민원 관리 — 우선순위순</h1>
+<div class="sub">접수 → 배정 → 처리중 → 완료 · O/X 검수 · 수동 재분류</div>
+<div id="metrics"></div>
+<table>
+  <thead><tr><th>#</th><th>등급</th><th>점수</th><th>유형</th><th>행정동</th><th>누적</th>
+      <th>담당</th><th>상태</th><th>검수 사유</th><th>접수 시각</th></tr></thead>
+  <tbody id="list"></tbody>
+</table>
+
+<div id="detail">
+  <button id="close">✕</button>
+  <h2 style="font-size:1.05rem;margin-bottom:10px">민원 #<span id="dId"></span></h2>
+  <img id="dImg" alt="신고 사진">
+  <div class="row"><span>유형 (AI)</span><b id="dCat"></b></div>
+  <div class="row"><span>신고자 선택</span><span id="dCatUser"></span></div>
+  <div class="row"><span>확신도</span><span id="dConf"></span></div>
+  <div class="row"><span>위치</span><span id="dLoc"></span></div>
+  <div class="row"><span>위치 판정</span><span id="dLocNote"></span></div>
+  <div class="row"><span>누적 신고</span><span id="dCount"></span></div>
+  <div class="row"><span>우선순위</span><span id="dScore"></span></div>
+  <div class="row"><span>담당 부서</span><span id="dDept"></span></div>
+  <div class="row"><span>검수 사유</span><span id="dReason"></span></div>
+
+  <div class="actions">
+    <button class="ok" id="btnO">O 분류 정확</button>
+    <select id="newCat">
+      <option>도로 파손</option><option>쓰레기 무단투기</option>
+      <option>가로등 고장</option><option>기타</option>
+    </select>
+    <button class="no" id="btnX">X 재분류</button>
+  </div>
+  <div class="actions">
+    <select id="newStatus">
+      <option>접수</option><option>배정</option><option>처리중</option><option>완료</option>
+    </select>
+    <button class="primary" id="btnStatus">상태 변경</button>
+  </div>
+  <div class="hist"><b>수정 이력</b><div id="dHist"></div></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let current = null;
+
+async function load() {
+  const rows = await (await fetch('/api/complaints')).json();
+  $('list').innerHTML = rows.map(r => `
+    <tr data-id="${r.id}" class="${current===r.id?'sel':''}">
+      <td>${r.id}</td>
+      <td><span class="grade g-${r.priority_grade}">${r.priority_grade}</span></td>
+      <td><b>${r.priority_score}</b></td>
+      <td>${r.category}</td>
+      <td>${r.admin_dong||''}</td>
+      <td>${r.report_count}</td>
+      <td>${r.department||'<i style="color:#b91c1c">미배정</i>'}</td>
+      <td>${r.status}</td>
+      <td class="reason">${r.review_reason||''}</td>
+      <td>${(r.reported_at||'').slice(0,16)}</td>
+    </tr>`).join('');
+  document.querySelectorAll('#list tr').forEach(tr =>
+    tr.addEventListener('click', () => open(rows.find(r => r.id == tr.dataset.id))));
+  const m = await (await fetch('/api/metrics')).json();
+  $('metrics').textContent = m.reviewed
+    ? `검수 ${m.reviewed}건 중 O ${m.correct}건 — 분류 정확도(신뢰도 지표) ${(m.accuracy*100).toFixed(1)}%`
+    : '검수 이력 없음 — O/X 검수를 진행하면 정확도 지표가 집계됩니다.';
+}
+
+async function open(r) {
+  current = r.id;
+  $('detail').style.display = 'block';
+  $('dId').textContent = r.id;
+  $('dImg').src = r.image_url || '';
+  $('dImg').style.display = r.image_url ? 'block' : 'none';
+  $('dCat').textContent = r.category;
+  $('dCatUser').textContent = r.category_user || '-';
+  $('dConf').textContent = r.confidence != null ? (r.confidence*100).toFixed(1)+'%' : '-';
+  $('dLoc').textContent = `${r.admin_dong} (${(+r.lat).toFixed(4)}, ${(+r.lng).toFixed(4)})`;
+  $('dLocNote').textContent = r.location_note || '-';
+  $('dCount').textContent = r.report_count + '건';
+  $('dScore').textContent = `${r.priority_score}점 · ${r.priority_grade}`;
+  $('dDept').textContent = r.department || '미배정';
+  $('dReason').textContent = r.review_reason || '없음(자동 확정)';
+  $('newStatus').value = r.status;
+  const hist = await (await fetch(`/api/complaints/${r.id}/history`)).json();
+  $('dHist').innerHTML = hist.length
+    ? hist.map(h => `<div>${h.at.slice(0,16)} · ${h.action}: ${h.before_value} → ${h.after_value}</div>`).join('')
+    : '<div>이력 없음</div>';
+  load();
+}
+
+async function post(url, body) {
+  const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+                                body:JSON.stringify(body)});
+  const d = await res.json();
+  if (!res.ok) { alert(d.error); return null; }
+  return d;
+}
+
+$('btnO').addEventListener('click', async () => {
+  const d = await post(`/api/complaints/${current}/review`, {ox:'O'});
+  if (d) { open(d); }
+});
+$('btnX').addEventListener('click', async () => {
+  const d = await post(`/api/complaints/${current}/review`,
+                       {ox:'X', new_category:$('newCat').value});
+  if (d) { open(d); }
+});
+$('btnStatus').addEventListener('click', async () => {
+  const d = await post(`/api/complaints/${current}/status`, {status:$('newStatus').value});
+  if (d) { const rows = await (await fetch('/api/complaints')).json();
+           open(rows.find(r => r.id === current)); }
+});
+$('close').addEventListener('click', () => { $('detail').style.display='none'; current=null; load(); });
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+complaints.db
+server.log
+uploads/*.jpg
+uploads/*.jpeg
+uploads/*.png
+!uploads/.gitkeep
