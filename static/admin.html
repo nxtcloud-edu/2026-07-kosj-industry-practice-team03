@@ -37,12 +37,44 @@
   .hist div { padding:3px 0; }
   #close { float:right; border:none; background:none; font-size:1.2rem; }
   #metrics { font-size:.85rem; color:var(--muted); margin-bottom:10px; }
+
+  #retrain { background:var(--card); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.08);
+             padding:16px 18px; margin-bottom:16px; }
+  #retrain h2 { font-size:1rem; margin-bottom:2px; }
+  #retrain .sub { margin-bottom:12px; }
+  .rt-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  .rt-stat { font-size:.85rem; color:var(--muted); }
+  .rt-stat b { color:var(--text); }
+  .rt-badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.78rem;
+              font-weight:600; color:#fff; background:#94a3b8; }
+  .rt-badge.on { background:#16a34a; }
+  .rt-bar { height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin:10px 0 8px; }
+  .rt-bar-fill { height:100%; background:#2563eb; width:0%; transition:width .3s linear; }
+  .rt-console { background:#0f172a; color:#a7f3d0; font-family:ui-monospace,Menlo,Consolas,monospace;
+                font-size:.78rem; line-height:1.55; border-radius:8px; padding:10px 12px;
+                max-height:150px; overflow-y:auto; white-space:pre-wrap; display:none; }
+  .rt-result { display:none; margin-top:10px; font-size:.85rem; }
+  .rt-result b { color:#16a34a; }
 </style>
 </head>
 <body>
 <h1>민원 관리 — 우선순위순</h1>
 <div class="sub">접수 → 배정 → 처리중 → 완료 · O/X 검수 · 수동 재분류</div>
 <div id="metrics"></div>
+
+<div id="retrain">
+  <h2>AI 재학습 센터</h2>
+  <div class="sub">담당자 검수(O/X)로 쌓인 데이터를 반영해 분류 모델을 주기적으로 재학습합니다.</div>
+  <div class="rt-top">
+    <div class="rt-stat">누적 학습 데이터 <b id="rtCount">0</b>건 · 현재 모델 정확도 <b id="rtAcc">-</b>
+      <span class="rt-badge" id="rtBadge">대기</span></div>
+    <button class="primary" id="btnRetrain">재학습 시작</button>
+  </div>
+  <div class="rt-bar"><div class="rt-bar-fill" id="rtBar"></div></div>
+  <pre class="rt-console" id="rtConsole"></pre>
+  <div class="rt-result" id="rtResult"></div>
+</div>
+
 <table>
   <thead><tr><th>#</th><th>등급</th><th>점수</th><th>유형</th><th>행정동</th><th>누적</th>
       <th>담당</th><th>상태</th><th>검수 사유</th><th>접수 시각</th></tr></thead>
@@ -154,6 +186,50 @@ $('btnStatus').addEventListener('click', async () => {
 });
 $('close').addEventListener('click', () => { $('detail').style.display='none'; current=null; load(); });
 
+// ---------- AI 재학습 센터 (시연용 시뮬레이션 — app/retrain.py 참고) ----------
+let rtPolling = null;
+
+async function rtIdleStats() {
+  const m = await (await fetch('/api/metrics')).json();
+  $('rtCount').textContent = m.reviewed || 0;
+  $('rtAcc').textContent = m.accuracy != null ? (m.accuracy * 100).toFixed(1) + '%' : '-';
+}
+
+function rtRender(s) {
+  if (s.state === 'idle') return;
+  $('rtCount').textContent = s.sample_count;
+  $('rtAcc').textContent = (s.accuracy * 100).toFixed(1) + '%';
+  $('rtBar').style.width = s.progress + '%';
+  $('rtConsole').style.display = 'block';
+  $('rtConsole').textContent = s.logs.join('\n');
+  $('rtConsole').scrollTop = $('rtConsole').scrollHeight;
+  if (s.state === 'running') {
+    $('rtBadge').textContent = `학습 중 · Epoch ${s.epoch}/${s.total_epochs}`;
+    $('rtBadge').className = 'rt-badge on';
+    $('rtResult').style.display = 'none';
+  } else if (s.state === 'done') {
+    $('rtBadge').textContent = `모델 v${s.version} 배포됨`;
+    $('rtBadge').className = 'rt-badge on';
+    const delta = ((s.target_accuracy - s.baseline_accuracy) * 100).toFixed(1);
+    $('rtResult').style.display = 'block';
+    $('rtResult').innerHTML =
+      `정확도 개선: ${(s.baseline_accuracy * 100).toFixed(1)}% → <b>${(s.target_accuracy * 100).toFixed(1)}%</b> ` +
+      `(+${delta}%p) · 학습 데이터 ${s.sample_count}건 반영`;
+    clearInterval(rtPolling); rtPolling = null;
+    $('btnRetrain').disabled = false;
+  }
+}
+
+$('btnRetrain').addEventListener('click', async () => {
+  $('btnRetrain').disabled = true;
+  $('rtResult').style.display = 'none';
+  const s = await post('/api/retrain/start', {});
+  if (!s) { $('btnRetrain').disabled = false; return; }
+  rtRender(s);
+  rtPolling = setInterval(async () => rtRender(await (await fetch('/api/retrain/status')).json()), 700);
+});
+
+rtIdleStats();
 load();
 setInterval(load, 15000);
 </script>

@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import Flask, jsonify, request, send_from_directory
 from PIL import Image
 
-from . import classifier, db, geo, priority
+from . import classifier, db, geo, priority, retrain
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -84,7 +84,12 @@ def create_complaint():
                                 "priority_grade": grade, "category": row["category"]}), 200
 
         # 신규 접수
-        image_url = _save_image(image_bytes)
+        try:
+            image_url = _save_image(image_bytes)
+        except Exception:
+            # HEIC 등 Pillow가 못 여는 포맷 — 미처리 시 500(HTML)이 떨어져 프론트의
+            # res.json() 파싱이 조용히 깨지고 신고가 사라진 것처럼 보인다 (버그 리포트로 발견).
+            return jsonify({"error": "지원하지 않는 사진 형식입니다. JPG 또는 PNG로 다시 시도해주세요."}), 400
         recent_corr = conn.execute(
             "SELECT COUNT(*) FROM complaints WHERE corrected_by_dept IS NOT NULL "
             "AND category=? AND admin_dong=?", (pred.category, admin_dong)).fetchone()[0]
@@ -225,6 +230,17 @@ def metrics():
     total = o + x
     return jsonify({"reviewed": total, "correct": o,
                     "accuracy": round(o / total, 3) if total else None})
+
+
+# ---------- AI 재학습 (시연용 시뮬레이션 — retrain.py 모듈 docstring 참고) ----------
+@app.post("/api/retrain/start")
+def retrain_start():
+    return jsonify(retrain.start())
+
+
+@app.get("/api/retrain/status")
+def retrain_status():
+    return jsonify(retrain.status())
 
 
 def _save_image(image_bytes: bytes) -> str:
