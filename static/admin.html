@@ -6,34 +6,59 @@
 <title>담당자 관리 — 민원 우선순위</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  :root { --bg:#f4f6fa; --card:#fff; --text:#1e293b; --muted:#64748b; }
+  :root { --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
+          --primary:#1d4ed8; --primary-dark:#1e40af; }
   * { box-sizing:border-box; margin:0; }
   body { font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
-         background:var(--bg); color:var(--text); padding:20px; }
-  h1 { font-size:1.25rem; margin-bottom:4px; }
+         background:var(--bg); color:var(--text); }
+  img.icon { width:14px; height:14px; display:block; }
+
+  /* 상단 브랜드 바 (Figma NavigationBar 참고) */
+  .topbar { background:#fff; border-bottom:1px solid #e5e7eb; padding:20px 28px;
+             display:flex; align-items:center; justify-content:space-between; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand-badge { width:32px; height:32px; border-radius:8px; background:var(--primary);
+                 color:#fff; font-weight:800; font-size:1rem; display:flex; align-items:center; justify-content:center; }
+  .brand-title { font-weight:700; font-size:1.05rem; color:#1e3a8a; }
+  .brand-sub { color:#9ca3af; font-size:.68rem; letter-spacing:.05em; margin-top:1px; }
+  .admin-chip { color:var(--muted); font-size:.8rem; border:1px solid var(--border); border-radius:999px;
+                padding:6px 14px; }
+
+  .page { padding:24px 28px 40px; }
   .sub { color:var(--muted); font-size:.85rem; margin-bottom:16px; }
-  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px;
-          overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08); }
-  th, td { padding:9px 10px; font-size:.87rem; text-align:left; border-bottom:1px solid #eef1f5;
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:12px;
+          overflow:hidden; box-shadow:0 1px 3px rgba(15,23,42,.04); }
+  th, td { padding:11px 12px; font-size:.85rem; text-align:left; border-bottom:1px solid var(--border);
             white-space:nowrap; }
-  th { background:#f8fafc; color:var(--muted); font-weight:600; }
-  tr.sel { background:#eff6ff; }
+  th { background:#f8fafc; color:var(--muted); font-weight:700; font-size:.78rem; }
+  tbody tr:nth-child(even) { background:#fafcff; }
+  tr.sel { background:#eff6ff !important; }
   tr.clickable { cursor:pointer; }
   .g-긴급 { background:#dc2626; } .g-높음 { background:#f59e0b; }
   .g-보통 { background:#3b82f6; } .g-낮음 { background:#94a3b8; }
-  .grade { color:#fff; padding:2px 9px; border-radius:999px; font-size:.78rem; }
+  .grade { color:#fff; padding:2px 9px; border-radius:999px; font-size:.76rem; font-weight:600; }
   .reason { color:#b91c1c; font-size:.78rem; font-weight:600; }
+  .status-badge { display:inline-flex; padding:3px 10px; border-radius:6px; font-size:.76rem; font-weight:700; }
+  .s-접수 { background:#f1f5f9; color:#475569; }
+  .s-배정 { background:#e0f2fe; color:#0369a1; }
+  .s-처리중 { background:#dbeafe; color:#1d4ed8; }
+  .s-완료 { background:#d1fae5; color:#047857; }
+  .ai-badge { display:inline-flex; align-items:center; gap:4px; background:#f5f3ff; border:1px solid #ddd6fe;
+              color:#7c3aed; font-size:.72rem; font-weight:700; padding:3px 8px; border-radius:5px; margin-left:6px; }
   #detail { position:fixed; right:0; top:0; bottom:0; width:390px; background:var(--card);
             box-shadow:-4px 0 16px rgba(0,0,0,.12); padding:20px; overflow-y:auto; display:none; z-index:20; }
-  #detail img { width:100%; border-radius:8px; }
+  #detail img.photo { width:100%; border-radius:8px; }
   .row { display:flex; justify-content:space-between; padding:6px 0; font-size:.9rem;
          border-bottom:1px solid #f1f5f9; }
   .row span:first-child { color:var(--muted); }
-  select, button, input[type=text] { padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:.9rem; }
+  select, button, input[type=text] { padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:.85rem;
+                                       font-family:inherit; }
   button { cursor:pointer; background:#fff; }
-  button.primary { background:#2563eb; color:#fff; border:none; }
+  button.primary { background:var(--primary); color:#fff; border:none; }
   button.ok { background:#16a34a; color:#fff; border:none; }
   button.no { background:#dc2626; color:#fff; border:none; }
+  button.ghost { background:#fff; border:1px solid var(--border); color:var(--text); display:inline-flex;
+                 align-items:center; gap:6px; font-weight:600; }
   .actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
   .hist { font-size:.8rem; color:var(--muted); margin-top:14px; }
   .hist div { padding:3px 0; }
@@ -41,35 +66,46 @@
   #metrics { font-size:.85rem; color:var(--muted); margin-bottom:14px; }
 
   /* 탭 */
-  .tabs { display:flex; gap:6px; margin-bottom:16px; background:#e2e8f0; padding:4px; border-radius:10px;
-          max-width:520px; }
-  .tab { flex:1; text-align:center; padding:9px 0; border-radius:8px; font-size:.88rem; font-weight:600;
-         color:var(--muted); cursor:pointer; }
-  .tab.active { background:#fff; color:#2563eb; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+  .tabs { display:flex; gap:28px; margin-bottom:20px; border-bottom:1px solid #e5e7eb; }
+  .tab { padding:0 0 10px; font-size:.92rem; font-weight:600; color:#4b5563; cursor:pointer;
+         border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:700; }
   .view { display:none; }
   .view.active { display:block; }
-  .card { background:var(--card); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.08);
-          padding:16px 18px; margin-bottom:16px; }
-  .filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:16px;
+          box-shadow:0 4px 6px rgba(15,23,42,.02); padding:20px 22px; margin-bottom:18px; }
+  .card-header { margin-bottom:14px; }
+  .card-title { font-weight:700; font-size:1.02rem; color:var(--text); }
+  .card-desc { color:var(--muted); font-size:.78rem; margin-top:2px; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+  .filters-left { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .search-box { display:flex; align-items:center; gap:8px; background:#f8fafc; border:1px solid var(--border);
+                border-radius:8px; padding:8px 12px; min-width:220px; }
+  .search-box input { border:none; background:none; padding:0; font-size:.85rem; flex:1; outline:none; }
   .table-wrap { overflow-x:auto; }
-  .thumb-link { color:#2563eb; font-size:.82rem; }
+  .thumb-link { color:var(--primary); font-size:.82rem; font-weight:600; }
   h2.section { font-size:1rem; margin:22px 0 8px; }
-  #fbList div { background:var(--card); border-radius:8px; padding:10px 12px; margin-bottom:8px;
-                box-shadow:0 1px 3px rgba(0,0,0,.06); font-size:.87rem; }
+  #fbList div { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px;
+                margin-bottom:8px; font-size:.87rem; }
   #fbList .fb-meta { color:var(--muted); font-size:.76rem; margin-top:4px; }
   .empty { color:var(--muted); font-size:.85rem; padding:10px 0; }
 
+  /* KPI 카드 (Figma 대시보드 페이지 참고) */
+  .kpi-grid { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .kpi-card { flex:1; min-width:180px; background:#fff; border:1px solid var(--border); border-radius:16px;
+              box-shadow:0 4px 6px rgba(15,23,42,.02); padding:18px 20px; display:flex; flex-direction:column; gap:8px; }
+  .kpi-label { color:var(--muted); font-size:.82rem; font-weight:500; }
+  .kpi-value { display:flex; align-items:baseline; gap:4px; }
+  .kpi-value b { font-size:1.7rem; font-weight:800; color:var(--text); }
+  .kpi-value span { color:var(--muted); font-size:.9rem; }
+
   /* AI 재학습 센터 */
-  #retrain h2 { font-size:1rem; margin-bottom:2px; }
-  #retrain .sub { margin-bottom:12px; }
   .rt-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-  .rt-stat { font-size:.85rem; color:var(--muted); }
-  .rt-stat b { color:var(--text); }
   .rt-badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.78rem;
               font-weight:600; color:#fff; background:#94a3b8; }
   .rt-badge.on { background:#16a34a; }
-  .rt-bar { height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin:10px 0 8px; }
-  .rt-bar-fill { height:100%; background:#2563eb; width:0%; transition:width .3s linear; }
+  .rt-bar { height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin:14px 0 8px; }
+  .rt-bar-fill { height:100%; background:var(--primary); width:0%; transition:width .3s linear; }
   .rt-console { background:#0f172a; color:#a7f3d0; font-family:ui-monospace,Menlo,Consolas,monospace;
                 font-size:.78rem; line-height:1.55; border-radius:8px; padding:10px 12px;
                 max-height:150px; overflow-y:auto; white-space:pre-wrap; display:none; }
@@ -78,10 +114,37 @@
   .chart-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; }
   .chart-box { flex:1; min-width:280px; height:260px; position:relative; }
   .chart-box.small { flex:0 0 220px; height:220px; }
+
+  /* 재분류 및 검수 — 등급별 칸반 보드 (Figma 처리현황 페이지 참고) */
+  .kanban-track { display:flex; gap:16px; align-items:flex-start; }
+  .kanban-col { flex:1; min-width:0; background:#f1f5f9; border-radius:12px; padding:14px; min-height:120px; }
+  .kanban-col-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .kanban-col-head b { font-size:.9rem; color:var(--text); }
+  .kanban-count { border-radius:999px; padding:1px 9px; font-size:.74rem; font-weight:700; }
+  .kanban-card { background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px;
+                 margin-bottom:10px; cursor:pointer; box-shadow:0 2px 2px rgba(15,23,42,.02); }
+  .kanban-card.sel { outline:2px solid var(--primary); }
+  .kanban-card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .kanban-pill { background:#e0f2fe; color:#0369a1; font-size:.7rem; font-weight:700; padding:3px 7px; border-radius:4px; }
+  .kanban-title { font-size:.85rem; font-weight:600; color:var(--text); line-height:1.4; margin-bottom:8px; }
+  .kanban-meta { border-top:1px solid var(--border); padding-top:8px; font-size:.72rem; color:var(--muted); }
+  .kanban-meta div { display:flex; justify-content:space-between; padding:2px 0; }
+  .kanban-meta b { color:var(--text); }
 </style>
 </head>
 <body>
-<h1>민원 관리 — 우선순위순</h1>
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-badge">AI</div>
+    <div>
+      <div class="brand-title">생활 인프라 신고 플랫폼</div>
+      <div class="brand-sub">ADMIN CONSOLE</div>
+    </div>
+  </div>
+  <div class="admin-chip">관리자</div>
+</div>
+
+<div class="page">
 <div class="sub">접수 → 배정 → 처리중 → 완료 · O/X 검수 · 수동 재분류</div>
 <div id="metrics"></div>
 
@@ -93,17 +156,23 @@
 
 <!-- ---------- DB 관리 ---------- -->
 <div class="view active" id="viewDb">
+  <div class="kpi-grid" id="dbKpi"></div>
+
   <div class="card">
     <div class="filters">
-      <select id="dbFilterStatus">
-        <option value="">전체 상태</option>
-        <option>접수</option><option>배정</option><option>처리중</option><option>완료</option>
-      </select>
-      <select id="dbFilterCat">
-        <option value="">전체 유형</option>
-        <option>도로 파손</option><option>쓰레기 무단투기</option><option>가로등 고장</option><option>기타</option>
-      </select>
-      <input type="text" id="dbFilterDong" placeholder="행정동 검색">
+      <div class="filters-left">
+        <div class="search-box"><img class="icon" src="/static/icons/search.svg" alt="">
+          <input type="text" id="dbFilterDong" placeholder="행정동 검색"></div>
+        <select id="dbFilterStatus">
+          <option value="">전체 상태</option>
+          <option>접수</option><option>배정</option><option>처리중</option><option>완료</option>
+        </select>
+        <select id="dbFilterCat">
+          <option value="">전체 유형</option>
+          <option>도로 파손</option><option>쓰레기 무단투기</option><option>가로등 고장</option><option>기타</option>
+        </select>
+      </div>
+      <button class="ghost" id="dbFilterReset"><img class="icon" src="/static/icons/refresh-cw.svg" alt="">필터 초기화</button>
     </div>
   </div>
   <div class="table-wrap">
@@ -122,12 +191,27 @@
 
 <!-- ---------- AI 재학습센터 ---------- -->
 <div class="view" id="viewRetrain">
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">누적 학습 데이터</div>
+      <div class="kpi-value"><b id="rtCount">0</b><span>건</span></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">현재 모델 정확도</div>
+      <div class="kpi-value"><b id="rtAcc">-</b></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">상태</div>
+      <div class="kpi-value"><span class="rt-badge" id="rtBadge">대기</span></div>
+    </div>
+  </div>
+
   <div id="retrain" class="card">
-    <h2>AI 재학습 센터</h2>
-    <div class="sub">담당자 검수(O/X)로 쌓인 데이터 + seed_images 시드 사진으로 분류 모델을 실제로 파인튜닝합니다.</div>
-    <div class="rt-top">
-      <div class="rt-stat">누적 학습 데이터 <b id="rtCount">0</b>건 · 현재 모델 정확도 <b id="rtAcc">-</b>
-        <span class="rt-badge" id="rtBadge">대기</span></div>
+    <div class="card-header rt-top">
+      <div>
+        <div class="card-title">AI 재학습 센터</div>
+        <div class="card-desc">담당자 검수(O/X)로 쌓인 데이터 + seed_images 시드 사진으로 분류 모델을 실제로 파인튜닝합니다.</div>
+      </div>
       <button class="primary" id="btnRetrain">재학습 시작</button>
     </div>
     <div class="rt-bar"><div class="rt-bar-fill" id="rtBar"></div></div>
@@ -141,7 +225,7 @@
   </div>
 
   <div class="card">
-    <h2 class="section" style="margin-top:0">모델 버전 히스토리</h2>
+    <div class="card-header"><div class="card-title">모델 버전 히스토리</div></div>
     <div class="table-wrap">
       <table id="rtHistoryTable">
         <thead><tr><th>버전</th><th>완료 시각</th><th>학습 데이터</th><th>정확도 변화</th></tr></thead>
@@ -156,19 +240,13 @@
   <div class="card">
     <label><input type="checkbox" id="reviewShowAll"> 전체 민원 표시 (기본: 검수 필요 건만)</label>
   </div>
-  <div class="table-wrap">
-    <table id="reviewTable">
-      <thead><tr><th>#</th><th>등급</th><th>점수</th><th>유형</th><th>행정동</th><th>누적</th>
-          <th>담당</th><th>상태</th><th>검수 사유</th><th>접수 시각</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <div class="kanban-track" id="reviewKanban"></div>
 </div>
 
 <div id="detail">
   <button id="close">✕</button>
   <h2 style="font-size:1.05rem;margin-bottom:10px">민원 #<span id="dId"></span></h2>
-  <img id="dImg" alt="신고 사진">
+  <img class="photo" id="dImg" alt="신고 사진">
   <div class="row"><span>유형 (AI)</span><b id="dCat"></b></div>
   <div class="row"><span>신고자 선택</span><span id="dCatUser"></span></div>
   <div class="row"><span>확신도</span><span id="dConf"></span></div>
@@ -195,6 +273,7 @@
   </div>
   <div class="hist"><b>수정 이력</b><div id="dHist"></div></div>
 </div>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -213,8 +292,9 @@ document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', (
 async function load() {
   allRows = await (await fetch('/api/complaints')).json();
   allRows.sort((a, b) => b.priority_score - a.priority_score);
+  renderDbKpi();
   renderDbTable();
-  renderReviewTable();
+  renderReviewKanban();
   const m = await (await fetch('/api/metrics')).json();
   $('metrics').textContent = m.reviewed
     ? `검수 ${m.reviewed}건 중 O ${m.correct}건 — 분류 정확도(신뢰도 지표) ${(m.accuracy*100).toFixed(1)}%`
@@ -222,6 +302,22 @@ async function load() {
 }
 
 // ---------- DB 관리 ----------
+function renderDbKpi() {
+  const total = allRows.length;
+  const done = allRows.filter(r => r.status === '완료').length;
+  const waiting = total - done;
+  const autoRate = total ? Math.round((1 - allRows.filter(r => r.review_reason).length / total) * 100) : 0;
+  $('dbKpi').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">총 접수 민원 수</div>
+      <div class="kpi-value"><b>${total}</b><span>건</span></div></div>
+    <div class="kpi-card"><div class="kpi-label">처리 대기중</div>
+      <div class="kpi-value"><b>${waiting}</b><span>건</span></div></div>
+    <div class="kpi-card"><div class="kpi-label">완료 처리</div>
+      <div class="kpi-value"><b>${done}</b><span>건</span></div></div>
+    <div class="kpi-card"><div class="kpi-label">AI 자동 확정 비율</div>
+      <div class="kpi-value"><b>${autoRate}</b><span>%</span></div></div>`;
+}
+
 function renderDbTable() {
   const statusF = $('dbFilterStatus').value, catF = $('dbFilterCat').value, dongF = $('dbFilterDong').value.trim();
   const rows = allRows.filter(r =>
@@ -232,12 +328,12 @@ function renderDbTable() {
     <tr>
       <td>${r.id}</td>
       <td>${(r.reported_at||'').slice(0,16)}</td>
-      <td>${r.category}</td>
+      <td>${r.category}<span class="ai-badge"><img class="icon" src="/static/icons/sparkles.svg" alt="">AI분류</span></td>
       <td>${r.category_user || '-'}</td>
       <td>${r.admin_dong||''}</td>
       <td>${r.report_count}</td>
       <td>${r.department||'<i style="color:#b91c1c">미배정</i>'}</td>
-      <td>${r.status}</td>
+      <td><span class="status-badge s-${r.status}">${r.status}</span></td>
       <td>${r.priority_score} · <span class="grade g-${r.priority_grade}">${r.priority_grade}</span></td>
       <td>${r.confidence != null ? (r.confidence*100).toFixed(0)+'%' : '-'}</td>
       <td>${r.image_url ? `<a class="thumb-link" href="${r.image_url}" target="_blank">보기</a>` : '-'}</td>
@@ -245,6 +341,10 @@ function renderDbTable() {
 }
 ['dbFilterStatus','dbFilterCat','dbFilterDong'].forEach(id =>
   $(id).addEventListener('input', renderDbTable));
+$('dbFilterReset').addEventListener('click', () => {
+  $('dbFilterStatus').value = ''; $('dbFilterCat').value = ''; $('dbFilterDong').value = '';
+  renderDbTable();
+});
 
 async function loadFeedback() {
   const list = await (await fetch('/api/feedback')).json();
@@ -254,27 +354,42 @@ async function loadFeedback() {
     </div>`).join('') : '<div class="empty">접수된 건의사항이 없습니다.</div>';
 }
 
-// ---------- 재분류 및 검수 ----------
-function renderReviewTable() {
+// ---------- 재분류 및 검수 (등급별 칸반 보드) ----------
+const REVIEW_GRADES = [
+  { grade: '긴급', badgeBg: '#fee2e2', badgeFg: '#ef4444' },
+  { grade: '높음', badgeBg: '#fef3c7', badgeFg: '#f59e0b' },
+  { grade: '보통', badgeBg: '#e0f2fe', badgeFg: '#0255cc' },
+  { grade: '낮음', badgeBg: '#f1f5f9', badgeFg: '#64748b' },
+];
+
+function renderReviewKanban() {
   const showAll = $('reviewShowAll').checked;
   const rows = showAll ? allRows : allRows.filter(r => r.review_reason);
-  document.querySelector('#reviewTable tbody').innerHTML = rows.map(r => `
-    <tr class="clickable ${current===r.id?'sel':''}" data-id="${r.id}">
-      <td>${r.id}</td>
-      <td><span class="grade g-${r.priority_grade}">${r.priority_grade}</span></td>
-      <td><b>${r.priority_score}</b></td>
-      <td>${r.category}</td>
-      <td>${r.admin_dong||''}</td>
-      <td>${r.report_count}</td>
-      <td>${r.department||'<i style="color:#b91c1c">미배정</i>'}</td>
-      <td>${r.status}</td>
-      <td class="reason">${r.review_reason||''}</td>
-      <td>${(r.reported_at||'').slice(0,16)}</td>
-    </tr>`).join('') || '<tr><td colspan="10" class="empty">검수가 필요한 민원이 없습니다.</td></tr>';
-  document.querySelectorAll('#reviewTable tr[data-id]').forEach(tr =>
-    tr.addEventListener('click', () => open(allRows.find(r => r.id == tr.dataset.id))));
+  $('reviewKanban').innerHTML = REVIEW_GRADES.map(g => {
+    const items = rows.filter(r => r.priority_grade === g.grade);
+    return `
+    <div class="kanban-col">
+      <div class="kanban-col-head"><b>${g.grade}</b>
+        <span class="kanban-count" style="background:${g.badgeBg};color:${g.badgeFg}">${items.length}</span></div>
+      ${items.map(r => `
+        <div class="kanban-card ${current===r.id?'sel':''}" data-id="${r.id}">
+          <div class="kanban-card-top">
+            <span class="kanban-pill">${r.category}</span>
+            ${r.review_reason ? `<span class="reason">${r.review_reason}</span>` : ''}
+          </div>
+          <div class="kanban-title">${r.admin_dong||'-'} · 신고 ${r.report_count}건 · 우선순위 ${r.priority_score}점</div>
+          <div class="kanban-meta">
+            <div><span>접수일</span><b>${(r.reported_at||'').slice(0,16)}</b></div>
+            <div><span>담당</span><b>${r.department||'미배정'}</b></div>
+            <div><span>상태</span><b>${r.status}</b></div>
+          </div>
+        </div>`).join('') || '<div class="empty">해당 없음</div>'}
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.kanban-card[data-id]').forEach(card =>
+    card.addEventListener('click', () => open(allRows.find(r => r.id == card.dataset.id))));
 }
-$('reviewShowAll').addEventListener('change', renderReviewTable);
+$('reviewShowAll').addEventListener('change', renderReviewKanban);
 
 async function open(r) {
   current = r.id;
@@ -342,7 +457,7 @@ const rtLineChart = new Chart($('rtLineChart'), {
 
 const rtClassChart = new Chart($('rtClassChart'), {
   type: 'doughnut',
-  data: { labels: [], datasets: [{ data: [], backgroundColor:['#2563eb','#f59e0b','#16a34a','#94a3b8'] }] },
+  data: { labels: [], datasets: [{ data: [], backgroundColor:['#1d4ed8','#f59e0b','#10b981','#94a3b8'] }] },
   options: { responsive:true, maintainAspectRatio:false,
     plugins:{ title:{ display:true, text:'학습 데이터 구성' } } }
 });

@@ -5,57 +5,111 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>세종시 생활 인프라 신고</title>
 <style>
-  :root { --primary:#2563eb; --bg:#f4f6fa; --card:#fff; --text:#1e293b; --muted:#64748b; }
+  :root { --primary:#1d4ed8; --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0; }
   * { box-sizing:border-box; margin:0; }
   body { font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
-         background:var(--bg); color:var(--text); max-width:480px; margin:0 auto; padding:16px; }
-  h1 { font-size:1.15rem; padding:8px 0 14px; }
-  .card { background:var(--card); border-radius:12px; padding:16px; margin-bottom:14px;
-          box-shadow:0 1px 3px rgba(0,0,0,.08); }
+         background:var(--bg); color:var(--text); max-width:420px; margin:0 auto; padding:0 0 24px; }
+
+  .topbar { display:flex; align-items:center; gap:10px; padding:16px; }
+  .brand-badge { width:30px; height:30px; border-radius:8px; background:var(--primary); color:#fff;
+                 font-weight:800; font-size:.82rem; display:flex; align-items:center; justify-content:center; }
+  .brand-title { font-weight:700; font-size:.95rem; }
+  .brand-sub { color:var(--muted); font-size:.7rem; }
+  .page { padding:0 16px; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:16px;
+          margin-bottom:14px; box-shadow:0 4px 8px rgba(15,23,42,.03); }
   label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
-  select, input[type=text], textarea { width:100%; padding:10px; border:1px solid #cbd5e1;
-          border-radius:8px; font-size:1rem; background:#fff; font-family:inherit; }
+  select, input[type=text], textarea { width:100%; padding:10px; border:1px solid #cdd6e3;
+          border-radius:10px; font-size:.95rem; background:#fff; font-family:inherit; }
   textarea { resize:vertical; min-height:100px; }
-  .photo-btn { display:block; width:100%; padding:22px 0; border:2px dashed #94a3b8;
-          border-radius:10px; text-align:center; color:var(--muted); cursor:pointer; }
-  #preview { width:100%; border-radius:10px; margin-top:8px; display:none; }
-  .gps { font-size:.8rem; color:var(--muted); margin-top:6px; }
-  .consent { display:flex; gap:8px; align-items:flex-start; font-size:.85rem; margin-top:12px; }
-  button.submit { width:100%; padding:14px; margin-top:14px; background:var(--primary);
-          color:#fff; border:none; border-radius:10px; font-size:1.05rem; font-weight:600; }
-  button.submit:disabled { background:#94a3b8; }
+
+  .hero { background:var(--primary); border-radius:20px; padding:18px; margin-bottom:14px; color:#fff;
+          box-shadow:0 10px 24px rgba(29,78,216,.22); }
+  .hero-badge { display:inline-block; background:rgba(255,255,255,.16); border-radius:12px; padding:4px 10px;
+                font-size:.72rem; font-weight:600; margin-bottom:8px; }
+  .hero-title { font-size:1.15rem; font-weight:700; line-height:1.4; margin-bottom:12px; }
+
+  .photo-btn { display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; padding:22px 0;
+          border:1.5px dashed #6095f6; background:#f0f6ff; border-radius:16px; text-align:center;
+          color:var(--text); cursor:pointer; }
+  .photo-plus { width:44px; height:44px; border-radius:22px; background:var(--primary); color:#fff;
+                font-size:1.3rem; display:flex; align-items:center; justify-content:center; }
+  .photo-btn b { font-size:.9rem; }
+  .photo-btn small { color:var(--muted); font-size:.75rem; }
+  #preview { width:100%; border-radius:12px; margin-top:8px; display:none; }
+
+  .loc-card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:12px 14px;
+              display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
+  .loc-label { font-weight:600; font-size:.85rem; }
+  .loc-sub { color:var(--muted); font-size:.76rem; margin-top:2px; }
+  .loc-ready { background:#dcfce7; color:#067645; font-size:.7rem; font-weight:700; padding:4px 10px; border-radius:999px; }
+  .loc-wait { background:#f1f5f9; color:var(--muted); font-size:.7rem; font-weight:700; padding:4px 10px; border-radius:999px; }
+
+  .consent { display:flex; gap:8px; align-items:flex-start; font-size:.82rem; margin-top:12px; color:#334155; }
+  .consent input { accent-color:var(--primary); width:18px; height:18px; margin-top:1px; flex-shrink:0; }
+
+  button.submit { width:100%; padding:15px; margin-top:14px; background:var(--primary);
+          color:#fff; border:none; border-radius:14px; font-size:1rem; font-weight:600;
+          box-shadow:0 8px 18px rgba(29,78,216,.18); }
+  button.submit:disabled { background:#94a3b8; box-shadow:none; }
   #result { display:none; }
   .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:.8rem;
           color:#fff; background:var(--primary); margin-left:6px; }
-  .row { display:flex; justify-content:space-between; padding:5px 0; font-size:.92rem; }
+  .row { display:flex; justify-content:space-between; padding:5px 0; font-size:.9rem; }
   .row span:first-child { color:var(--muted); }
+  .step-tracker { font-size:.76rem; font-weight:600; margin-top:8px; padding-top:8px; border-top:1px solid var(--border); }
+
   .lookup { display:flex; gap:8px; }
   .lookup input { flex:1; }
-  .lookup button { padding:0 16px; border:none; border-radius:8px; background:#334155; color:#fff; }
-  #lookupResult { margin-top:10px; font-size:.92rem; }
+  .lookup button { padding:0 16px; border:none; border-radius:10px; background:var(--primary); color:#fff; font-weight:600; }
+  #lookupResult { margin-top:12px; }
+  .lu-card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px; }
+  .lu-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .lu-sub { color:#94a2b6; font-size:.76rem; margin-bottom:4px; }
 
   /* 탭 */
-  .tabs { display:flex; gap:6px; margin-bottom:14px; background:#e2e8f0; padding:4px; border-radius:10px; }
-  .tab { flex:1; text-align:center; padding:9px 0; border-radius:8px; font-size:.88rem; font-weight:600;
+  .tabs { display:flex; gap:6px; margin-bottom:14px; background:#e2e8f0; padding:4px; border-radius:12px; }
+  .tab { flex:1; text-align:center; padding:9px 0; border-radius:9px; font-size:.85rem; font-weight:600;
          color:var(--muted); cursor:pointer; }
   .tab.active { background:#fff; color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,.08); }
   .view { display:none; }
   .view.active { display:block; }
 
   /* 민원 종류 토글 */
-  .cat-toggle { display:flex; flex-wrap:wrap; gap:6px; }
-  .cat-btn { padding:8px 12px; border:1px solid #cbd5e1; border-radius:999px; background:#fff;
-             font-size:.85rem; color:var(--text); cursor:pointer; }
-  .cat-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; font-weight:600; }
-  .cat-hint { font-size:.78rem; color:var(--muted); margin-top:6px; }
+  .cat-toggle { display:flex; flex-wrap:wrap; gap:7px; }
+  .cat-btn { padding:9px 13px; border:1px solid #cdd6e3; border-radius:999px; background:#fff;
+             font-size:.8rem; font-weight:600; color:#334155; cursor:pointer; }
+  .cat-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .cat-hint { font-size:.76rem; color:var(--muted); margin-top:6px; }
 
   .fb-msg { font-size:.85rem; margin-top:10px; display:none; }
   .fb-msg.ok { color:#16a34a; }
+
+  /* 이용안내 카드 */
+  .guide-emergency { background:#fff7e3; border-radius:16px; padding:13px 16px; margin-bottom:14px; }
+  .guide-emergency b { color:#92400e; font-size:.88rem; display:block; margin-bottom:4px; }
+  .guide-emergency span { color:#b45807; font-size:.78rem; }
+  .guide-step { display:flex; gap:12px; align-items:center; background:#fff; border:1px solid var(--border);
+                border-radius:14px; padding:12px 14px; margin-bottom:8px; }
+  .guide-step b { color:var(--primary); font-size:1rem; }
+  .guide-step div p { font-size:.78rem; color:#334155; }
+  .guide-step div p:first-child { font-weight:600; color:var(--text); font-size:.84rem; }
+  .guide-privacy { background:#eef2fb; border-radius:16px; padding:13px 16px; }
+  .guide-privacy b { color:#1d40af; font-size:.82rem; display:block; margin-bottom:3px; }
+  .guide-privacy span { color:var(--muted); font-size:.72rem; }
 </style>
 </head>
 <body>
-<h1>세종시 생활 인프라 신고 <span style="font-weight:400;color:var(--muted);font-size:.8rem">MVP</span></h1>
+<div class="topbar">
+  <div class="brand-badge">AI</div>
+  <div>
+    <div class="brand-title">생활 불편, 바로 알려주세요</div>
+    <div class="brand-sub">세종도시관리공단 · 시민신고 MVP</div>
+  </div>
+</div>
 
+<div class="page">
 <div class="tabs">
   <div class="tab active" data-view="viewReport">신고</div>
   <div class="tab" data-view="viewLookup">조회</div>
@@ -64,14 +118,22 @@
 
 <!-- ---------- 신고 ---------- -->
 <div class="view active" id="viewReport">
+  <div class="hero">
+    <div class="hero-badge">AI 자동 분류</div>
+    <div class="hero-title">사진 한 장이면<br>신고가 시작돼요</div>
+  </div>
+
   <div class="card" id="form">
     <label>사진 (촬영 또는 앨범)</label>
-    <label class="photo-btn" id="photoBtn">탭하여 사진 첨부
+    <label class="photo-btn" id="photoBtn">
+      <div class="photo-plus">＋</div>
+      <b>사진 촬영 또는 앨범에서 선택</b>
+      <small>현장이 잘 보이도록 한 장만 올려주세요.</small>
       <input type="file" id="photo" accept="image/*" capture="environment" hidden>
     </label>
     <img id="preview" alt="미리보기">
 
-    <label>민원 종류</label>
+    <label>민원 종류 · 선택하지 않으면 AI가 자동 분류해요</label>
     <div class="cat-toggle" id="catToggle">
       <button type="button" class="cat-btn active" data-val="">AI 분류</button>
       <button type="button" class="cat-btn" data-val="도로파손">도로파손</button>
@@ -79,17 +141,23 @@
       <button type="button" class="cat-btn" data-val="생활민원 신고">생활민원 신고</button>
       <button type="button" class="cat-btn" data-val="기타">기타</button>
     </div>
-    <div class="cat-hint">AI 분류를 선택하면 사진을 AI가 직접 보고 유형을 판단합니다.</div>
     <input type="text" id="categoryEtc" placeholder="기타 내용을 적어주세요" style="display:none;margin-top:6px">
 
-    <div class="gps" id="gps">위치 확인 중…</div>
+    <label>위치</label>
+    <div class="loc-card">
+      <div>
+        <div class="loc-label">현재 위치</div>
+        <div class="loc-sub" id="gps">위치 확인 중…</div>
+      </div>
+      <span class="loc-wait" id="gpsBadge">확인 중</span>
+    </div>
 
     <div class="consent">
       <input type="checkbox" id="consent">
       <span>위치정보·사진의 수집 및 민원 처리 목적 이용에 동의합니다. 신고자 식별 정보는 수집하지 않으며 처리 상태는 신고 번호로 조회합니다.</span>
     </div>
 
-    <button class="submit" id="submit" disabled>신고하기</button>
+    <button class="submit" id="submit" disabled>AI 분석 후 신고 접수</button>
   </div>
 
   <div class="card" id="result">
@@ -99,7 +167,17 @@
     <div class="row"><span>우선순위 점수</span><span id="rScore"></span></div>
     <div class="row"><span>담당 부서</span><span id="rDept"></span></div>
     <div class="row" id="rDupRow" style="display:none"><span>중복 신고 누적</span><span id="rDup"></span></div>
-    <div style="font-size:.8rem;color:var(--muted);margin-top:8px">신고 번호를 저장해 두면 "조회" 탭에서 처리 상태를 확인할 수 있습니다.</div>
+    <div class="step-tracker" id="rSteps"></div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:8px">신고 번호를 저장해 두면 "조회" 탭에서 처리 상태를 확인할 수 있습니다.</div>
+  </div>
+
+  <div class="guide-emergency">
+    <b>긴급한 위험은 바로 전화해 주세요</b>
+    <span>범죄·위험 상황 112 · 화재·구조·구급 119</span>
+  </div>
+  <div class="guide-privacy">
+    <b>개인정보는 안전하게 처리됩니다</b>
+    <span>사진은 위치정보 제거·크기 조정 후 신고 처리 목적으로만 사용해요.</span>
   </div>
 </div>
 
@@ -113,6 +191,11 @@
     </div>
     <div id="lookupResult"></div>
   </div>
+
+  <div class="guide-step"><b>01</b><div><p>현장 사진 촬영</p><p>문제가 선명하게 보이도록 촬영해요.</p></div></div>
+  <div class="guide-step"><b>02</b><div><p>위치 확인</p><p>현재 위치가 맞는지 확인해요.</p></div></div>
+  <div class="guide-step"><b>03</b><div><p>AI 자동 분석</p><p>유형·우선순위·담당 부서를 분석해요.</p></div></div>
+  <div class="guide-step"><b>04</b><div><p>처리 상황 확인</p><p>신고 번호로 접수부터 완료까지 확인해요.</p></div></div>
 </div>
 
 <!-- ---------- 건의사항 ---------- -->
@@ -126,11 +209,32 @@
     <div class="fb-msg ok" id="fbMsg">소중한 의견 감사합니다. 접수되었습니다.</div>
   </div>
 </div>
+</div>
 
 <script>
 let coords = null;
 let selectedCat = '';
 const $ = id => document.getElementById(id);
+const STATUS_STEPS = ['접수','배정','처리중','완료'];
+
+function stepTrackerHtml(status) {
+  const idx = STATUS_STEPS.indexOf(status);
+  const done = status === '완료';
+  const active = done ? '#067645' : '#1d4ed8';
+  return STATUS_STEPS.map((s, i) => {
+    let mark = '';
+    if (i < idx) mark = ' ✓'; else if (i === idx) mark = done ? ' ✓' : ' ●';
+    const color = i <= idx ? active : '#cbd5e1';
+    return `<span style="color:${color}">${s}${mark}</span>`;
+  }).join('&nbsp;&nbsp;&nbsp;');
+}
+
+function statusBadgeHtml(status) {
+  const map = { '접수':['#f1f5f9','#475569'], '배정':['#e0f2fe','#0369a1'],
+                '처리중':['#fff7e3','#b45807'], '완료':['#dcfce7','#067645'] };
+  const [bg, fg] = map[status] || ['#f1f5f9','#475569'];
+  return `<span style="background:${bg};color:${fg};padding:3px 10px;border-radius:999px;font-size:.74rem;font-weight:700">${status}</span>`;
+}
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -141,9 +245,11 @@ document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', (
 
 navigator.geolocation.getCurrentPosition(
   p => { coords = {lat:p.coords.latitude, lng:p.coords.longitude};
-         $('gps').textContent = `현재 위치: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`; check(); },
+         $('gps').textContent = `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+         $('gpsBadge').textContent = '위치 확인'; $('gpsBadge').className = 'loc-ready'; check(); },
   () => { coords = {lat:36.4801, lng:127.2571}; // 데모 fallback: 세종 한솔동
-          $('gps').textContent = '위치 권한 없음 — 데모 좌표(한솔동) 사용'; check(); });
+          $('gps').textContent = '위치 권한 없음 — 데모 좌표(한솔동) 사용';
+          $('gpsBadge').textContent = '위치 확인'; $('gpsBadge').className = 'loc-ready'; check(); });
 
 $('photo').addEventListener('change', e => {
   const f = e.target.files[0];
@@ -164,7 +270,7 @@ function check() {
 }
 
 $('submit').addEventListener('click', async () => {
-  $('submit').disabled = true; $('submit').textContent = '접수 중…';
+  $('submit').disabled = true; $('submit').textContent = 'AI 분석 중…';
   const fd = new FormData();
   fd.append('photo', $('photo').files[0]);
   fd.append('lat', coords.lat); fd.append('lng', coords.lng);
@@ -174,7 +280,7 @@ $('submit').addEventListener('click', async () => {
   if (cat) fd.append('category_user', cat);
   const res = await fetch('/api/complaints', {method:'POST', body:fd});
   const d = await res.json();
-  $('submit').textContent = '신고하기'; $('submit').disabled = false;
+  $('submit').textContent = 'AI 분석 후 신고 접수'; $('submit').disabled = false;
   if (!res.ok) { alert(d.error); return; }
   $('result').style.display='block';
   $('rId').textContent = d.id;
@@ -182,12 +288,14 @@ $('submit').addEventListener('click', async () => {
   $('rScore').textContent = d.priority_score + '점';
   $('rGrade').textContent = d.priority_grade;
   $('rDept').textContent = d.department || '검수 대기';
+  $('rSteps').innerHTML = stepTrackerHtml(d.status || '접수');
   if (d.duplicate_merged) {
     $('rDupRow').style.display='flex';
     $('rDup').textContent = `기존 신고와 통합 (누적 ${d.report_count}건)`;
     $('rCat').textContent = d.category; $('rDept').textContent = '기존 건 참조';
   } else { $('rDupRow').style.display='none'; }
   localStorage.setItem('lastComplaintId', d.id);
+  $('lookupId').value = d.id;
   $('result').scrollIntoView({behavior:'smooth'});
 });
 
@@ -196,9 +304,13 @@ $('lookupBtn').addEventListener('click', async () => {
   if (!id) return;
   const res = await fetch(`/api/complaints/${id}/status`);
   const d = await res.json();
-  $('lookupResult').textContent = res.ok
-    ? `#${d.id} ${d.category} — 상태: ${d.status} · 등급: ${d.priority_grade} · 누적 ${d.report_count}건`
-    : d.error;
+  if (!res.ok) { $('lookupResult').innerHTML = `<div class="empty">${d.error}</div>`; return; }
+  $('lookupResult').innerHTML = `
+    <div class="lu-card">
+      <div class="lu-top"><b>${d.category}</b>${statusBadgeHtml(d.status)}</div>
+      <div class="lu-sub">신고 #${d.id} · 등급 ${d.priority_grade} · 누적 ${d.report_count}건</div>
+      <div class="step-tracker">${stepTrackerHtml(d.status)}</div>
+    </div>`;
 });
 const lastId = localStorage.getItem('lastComplaintId');
 if (lastId) $('lookupId').value = lastId;
