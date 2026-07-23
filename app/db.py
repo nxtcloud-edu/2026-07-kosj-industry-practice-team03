@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
   before_value VARCHAR(50),
   after_value  VARCHAR(50)
 );
+
+-- 시민 건의사항 (민원 분류 대상이 아닌 자유 의견)
+CREATE TABLE IF NOT EXISTS feedback (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  submitted_at TIMESTAMP NOT NULL,
+  content      TEXT NOT NULL,
+  contact      VARCHAR(50)
+);
 """
 
 # 부서 매핑 규칙 (MVP 3개 유형 — 모든 행정동 공통, '*')

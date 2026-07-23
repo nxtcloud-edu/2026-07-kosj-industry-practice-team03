@@ -4,10 +4,13 @@ import os
 import uuid
 from datetime import datetime
 
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
 from PIL import Image
 
 from . import classifier, db, geo, priority, retrain
+
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -232,7 +235,31 @@ def metrics():
                     "accuracy": round(o / total, 3) if total else None})
 
 
-# ---------- AI 재학습 (시연용 시뮬레이션 — retrain.py 모듈 docstring 참고) ----------
+# ---------- 건의사항 (민원 분류 대상이 아닌 자유 의견) ----------
+@app.post("/api/feedback")
+def create_feedback():
+    body = request.get_json(force=True) or {}
+    content = (body.get("content") or "").strip()
+    contact = (body.get("contact") or "").strip() or None
+    if not content:
+        return jsonify({"error": "내용을 입력해주세요."}), 400
+    conn = db.connect()
+    cur = conn.execute("INSERT INTO feedback (submitted_at, content, contact) VALUES (?,?,?)",
+                       (datetime.now(), content, contact))
+    conn.commit()
+    conn.close()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.get("/api/feedback")
+def list_feedback():
+    conn = db.connect()
+    rows = [_row(r) for r in conn.execute("SELECT * FROM feedback ORDER BY submitted_at DESC")]
+    conn.close()
+    return jsonify(rows)
+
+
+# ---------- AI 재학습 (app/retrain.py — seed_images + 검수 데이터로 실제 파인튜닝) ----------
 @app.post("/api/retrain/start")
 def retrain_start():
     return jsonify(retrain.start())
@@ -241,6 +268,11 @@ def retrain_start():
 @app.get("/api/retrain/status")
 def retrain_status():
     return jsonify(retrain.status())
+
+
+@app.get("/api/retrain/history")
+def retrain_history():
+    return jsonify(retrain.history())
 
 
 def _save_image(image_bytes: bytes) -> str:

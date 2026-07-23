@@ -9,12 +9,13 @@
   * { box-sizing:border-box; margin:0; }
   body { font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
          background:var(--bg); color:var(--text); max-width:480px; margin:0 auto; padding:16px; }
-  h1 { font-size:1.15rem; padding:8px 0 16px; }
+  h1 { font-size:1.15rem; padding:8px 0 14px; }
   .card { background:var(--card); border-radius:12px; padding:16px; margin-bottom:14px;
           box-shadow:0 1px 3px rgba(0,0,0,.08); }
   label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
-  select, input[type=text] { width:100%; padding:10px; border:1px solid #cbd5e1;
-          border-radius:8px; font-size:1rem; background:#fff; }
+  select, input[type=text], textarea { width:100%; padding:10px; border:1px solid #cbd5e1;
+          border-radius:8px; font-size:1rem; background:#fff; font-family:inherit; }
+  textarea { resize:vertical; min-height:100px; }
   .photo-btn { display:block; width:100%; padding:22px 0; border:2px dashed #94a3b8;
           border-radius:10px; text-align:center; color:var(--muted); cursor:pointer; }
   #preview { width:100%; border-radius:10px; margin-top:8px; display:none; }
@@ -32,60 +33,111 @@
   .lookup input { flex:1; }
   .lookup button { padding:0 16px; border:none; border-radius:8px; background:#334155; color:#fff; }
   #lookupResult { margin-top:10px; font-size:.92rem; }
+
+  /* 탭 */
+  .tabs { display:flex; gap:6px; margin-bottom:14px; background:#e2e8f0; padding:4px; border-radius:10px; }
+  .tab { flex:1; text-align:center; padding:9px 0; border-radius:8px; font-size:.88rem; font-weight:600;
+         color:var(--muted); cursor:pointer; }
+  .tab.active { background:#fff; color:var(--primary); box-shadow:0 1px 2px rgba(0,0,0,.08); }
+  .view { display:none; }
+  .view.active { display:block; }
+
+  /* 민원 종류 토글 */
+  .cat-toggle { display:flex; flex-wrap:wrap; gap:6px; }
+  .cat-btn { padding:8px 12px; border:1px solid #cbd5e1; border-radius:999px; background:#fff;
+             font-size:.85rem; color:var(--text); cursor:pointer; }
+  .cat-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; font-weight:600; }
+  .cat-hint { font-size:.78rem; color:var(--muted); margin-top:6px; }
+
+  .fb-msg { font-size:.85rem; margin-top:10px; display:none; }
+  .fb-msg.ok { color:#16a34a; }
 </style>
 </head>
 <body>
 <h1>세종시 생활 인프라 신고 <span style="font-weight:400;color:var(--muted);font-size:.8rem">MVP</span></h1>
 
-<div class="card" id="form">
-  <label>사진 (촬영 또는 앨범)</label>
-  <label class="photo-btn" id="photoBtn">탭하여 사진 첨부
-    <input type="file" id="photo" accept="image/*" capture="environment" hidden>
-  </label>
-  <img id="preview" alt="미리보기">
-
-  <label>민원 종류 (선택 시 AI 분류에 참고됩니다)</label>
-  <select id="category">
-    <option value="">선택 안 함 — AI 자동 분류</option>
-    <option>도로 파손</option>
-    <option>쓰레기 무단투기</option>
-    <option>가로등 고장</option>
-    <option>기타</option>
-  </select>
-  <input type="text" id="categoryEtc" placeholder="기타 내용을 적어주세요" style="display:none;margin-top:6px">
-
-  <div class="gps" id="gps">위치 확인 중…</div>
-
-  <div class="consent">
-    <input type="checkbox" id="consent">
-    <span>위치정보·사진의 수집 및 민원 처리 목적 이용에 동의합니다. 신고자 식별 정보는 수집하지 않으며 처리 상태는 신고 번호로 조회합니다.</span>
-  </div>
-
-  <button class="submit" id="submit" disabled>신고하기</button>
+<div class="tabs">
+  <div class="tab active" data-view="viewReport">신고</div>
+  <div class="tab" data-view="viewLookup">조회</div>
+  <div class="tab" data-view="viewFeedback">건의사항</div>
 </div>
 
-<div class="card" id="result">
-  <div style="font-weight:700;margin-bottom:8px">접수 결과 <span class="badge" id="rGrade"></span></div>
-  <div class="row"><span>신고 번호</span><b id="rId"></b></div>
-  <div class="row"><span>AI 분류</span><span id="rCat"></span></div>
-  <div class="row"><span>우선순위 점수</span><span id="rScore"></span></div>
-  <div class="row"><span>담당 부서</span><span id="rDept"></span></div>
-  <div class="row" id="rDupRow" style="display:none"><span>중복 신고 누적</span><span id="rDup"></span></div>
-  <div style="font-size:.8rem;color:var(--muted);margin-top:8px">신고 번호를 저장해 두면 아래에서 처리 상태를 조회할 수 있습니다.</div>
+<!-- ---------- 신고 ---------- -->
+<div class="view active" id="viewReport">
+  <div class="card" id="form">
+    <label>사진 (촬영 또는 앨범)</label>
+    <label class="photo-btn" id="photoBtn">탭하여 사진 첨부
+      <input type="file" id="photo" accept="image/*" capture="environment" hidden>
+    </label>
+    <img id="preview" alt="미리보기">
+
+    <label>민원 종류</label>
+    <div class="cat-toggle" id="catToggle">
+      <button type="button" class="cat-btn active" data-val="">AI 분류</button>
+      <button type="button" class="cat-btn" data-val="도로파손">도로파손</button>
+      <button type="button" class="cat-btn" data-val="시설물 파손">시설물 파손</button>
+      <button type="button" class="cat-btn" data-val="생활민원 신고">생활민원 신고</button>
+      <button type="button" class="cat-btn" data-val="기타">기타</button>
+    </div>
+    <div class="cat-hint">AI 분류를 선택하면 사진을 AI가 직접 보고 유형을 판단합니다.</div>
+    <input type="text" id="categoryEtc" placeholder="기타 내용을 적어주세요" style="display:none;margin-top:6px">
+
+    <div class="gps" id="gps">위치 확인 중…</div>
+
+    <div class="consent">
+      <input type="checkbox" id="consent">
+      <span>위치정보·사진의 수집 및 민원 처리 목적 이용에 동의합니다. 신고자 식별 정보는 수집하지 않으며 처리 상태는 신고 번호로 조회합니다.</span>
+    </div>
+
+    <button class="submit" id="submit" disabled>신고하기</button>
+  </div>
+
+  <div class="card" id="result">
+    <div style="font-weight:700;margin-bottom:8px">접수 결과 <span class="badge" id="rGrade"></span></div>
+    <div class="row"><span>신고 번호</span><b id="rId"></b></div>
+    <div class="row"><span>AI 분류</span><span id="rCat"></span></div>
+    <div class="row"><span>우선순위 점수</span><span id="rScore"></span></div>
+    <div class="row"><span>담당 부서</span><span id="rDept"></span></div>
+    <div class="row" id="rDupRow" style="display:none"><span>중복 신고 누적</span><span id="rDup"></span></div>
+    <div style="font-size:.8rem;color:var(--muted);margin-top:8px">신고 번호를 저장해 두면 "조회" 탭에서 처리 상태를 확인할 수 있습니다.</div>
+  </div>
 </div>
 
-<div class="card">
-  <label>내 신고 처리 상태 조회 (신고 번호)</label>
-  <div class="lookup">
-    <input type="text" id="lookupId" inputmode="numeric" placeholder="예: 1">
-    <button id="lookupBtn">조회</button>
+<!-- ---------- 조회 ---------- -->
+<div class="view" id="viewLookup">
+  <div class="card">
+    <label>내 신고 처리 상태 조회 (신고 번호)</label>
+    <div class="lookup">
+      <input type="text" id="lookupId" inputmode="numeric" placeholder="예: 1">
+      <button id="lookupBtn">조회</button>
+    </div>
+    <div id="lookupResult"></div>
   </div>
-  <div id="lookupResult"></div>
+</div>
+
+<!-- ---------- 건의사항 ---------- -->
+<div class="view" id="viewFeedback">
+  <div class="card">
+    <label>건의사항 · 불편사항</label>
+    <textarea id="fbContent" placeholder="민원 신고와 별개로 건의하고 싶은 내용을 자유롭게 적어주세요."></textarea>
+    <label>연락처 (선택, 답변이 필요한 경우만)</label>
+    <input type="text" id="fbContact" placeholder="선택 입력">
+    <button class="submit" id="fbSubmit">건의사항 보내기</button>
+    <div class="fb-msg ok" id="fbMsg">소중한 의견 감사합니다. 접수되었습니다.</div>
+  </div>
 </div>
 
 <script>
 let coords = null;
+let selectedCat = '';
 const $ = id => document.getElementById(id);
+
+document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  tab.classList.add('active');
+  $(tab.dataset.view).classList.add('active');
+}));
 
 navigator.geolocation.getCurrentPosition(
   p => { coords = {lat:p.coords.latitude, lng:p.coords.longitude};
@@ -98,8 +150,14 @@ $('photo').addEventListener('change', e => {
   if (f) { $('preview').src = URL.createObjectURL(f); $('preview').style.display='block'; }
   check();
 });
-$('category').addEventListener('change', () =>
-  $('categoryEtc').style.display = $('category').value === '기타' ? 'block' : 'none');
+
+document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedCat = btn.dataset.val;
+  $('categoryEtc').style.display = selectedCat === '기타' ? 'block' : 'none';
+}));
+
 $('consent').addEventListener('change', check);
 function check() {
   $('submit').disabled = !($('photo').files[0] && $('consent').checked && coords);
@@ -111,8 +169,8 @@ $('submit').addEventListener('click', async () => {
   fd.append('photo', $('photo').files[0]);
   fd.append('lat', coords.lat); fd.append('lng', coords.lng);
   fd.append('consent', 'true');
-  let cat = $('category').value;
-  if (cat === '기타' && $('categoryEtc').value.trim()) cat = $('categoryEtc').value.trim();
+  let cat = selectedCat;
+  if (cat === '기타') cat = $('categoryEtc').value.trim() || '기타';
   if (cat) fd.append('category_user', cat);
   const res = await fetch('/api/complaints', {method:'POST', body:fd});
   const d = await res.json();
@@ -129,6 +187,7 @@ $('submit').addEventListener('click', async () => {
     $('rDup').textContent = `기존 신고와 통합 (누적 ${d.report_count}건)`;
     $('rCat').textContent = d.category; $('rDept').textContent = '기존 건 참조';
   } else { $('rDupRow').style.display='none'; }
+  localStorage.setItem('lastComplaintId', d.id);
   $('result').scrollIntoView({behavior:'smooth'});
 });
 
@@ -140,6 +199,23 @@ $('lookupBtn').addEventListener('click', async () => {
   $('lookupResult').textContent = res.ok
     ? `#${d.id} ${d.category} — 상태: ${d.status} · 등급: ${d.priority_grade} · 누적 ${d.report_count}건`
     : d.error;
+});
+const lastId = localStorage.getItem('lastComplaintId');
+if (lastId) $('lookupId').value = lastId;
+
+$('fbSubmit').addEventListener('click', async () => {
+  const content = $('fbContent').value.trim();
+  if (!content) { alert('내용을 입력해주세요.'); return; }
+  $('fbSubmit').disabled = true;
+  const res = await fetch('/api/feedback', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({content, contact: $('fbContact').value.trim()}),
+  });
+  $('fbSubmit').disabled = false;
+  if (!res.ok) { alert((await res.json()).error); return; }
+  $('fbContent').value = ''; $('fbContact').value = '';
+  $('fbMsg').style.display = 'block';
+  setTimeout(() => $('fbMsg').style.display = 'none', 4000);
 });
 </script>
 </body>

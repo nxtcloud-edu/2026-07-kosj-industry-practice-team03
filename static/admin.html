@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>담당자 관리 — 민원 우선순위</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root { --bg:#f4f6fa; --card:#fff; --text:#1e293b; --muted:#64748b; }
   * { box-sizing:border-box; margin:0; }
@@ -13,21 +14,22 @@
   .sub { color:var(--muted); font-size:.85rem; margin-bottom:16px; }
   table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px;
           overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08); }
-  th, td { padding:9px 10px; font-size:.87rem; text-align:left; border-bottom:1px solid #eef1f5; }
+  th, td { padding:9px 10px; font-size:.87rem; text-align:left; border-bottom:1px solid #eef1f5;
+            white-space:nowrap; }
   th { background:#f8fafc; color:var(--muted); font-weight:600; }
   tr.sel { background:#eff6ff; }
-  tr { cursor:pointer; }
+  tr.clickable { cursor:pointer; }
   .g-긴급 { background:#dc2626; } .g-높음 { background:#f59e0b; }
   .g-보통 { background:#3b82f6; } .g-낮음 { background:#94a3b8; }
   .grade { color:#fff; padding:2px 9px; border-radius:999px; font-size:.78rem; }
   .reason { color:#b91c1c; font-size:.78rem; font-weight:600; }
   #detail { position:fixed; right:0; top:0; bottom:0; width:390px; background:var(--card);
-            box-shadow:-4px 0 16px rgba(0,0,0,.12); padding:20px; overflow-y:auto; display:none; }
+            box-shadow:-4px 0 16px rgba(0,0,0,.12); padding:20px; overflow-y:auto; display:none; z-index:20; }
   #detail img { width:100%; border-radius:8px; }
   .row { display:flex; justify-content:space-between; padding:6px 0; font-size:.9rem;
          border-bottom:1px solid #f1f5f9; }
   .row span:first-child { color:var(--muted); }
-  select, button { padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:.9rem; }
+  select, button, input[type=text] { padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:.9rem; }
   button { cursor:pointer; background:#fff; }
   button.primary { background:#2563eb; color:#fff; border:none; }
   button.ok { background:#16a34a; color:#fff; border:none; }
@@ -36,10 +38,28 @@
   .hist { font-size:.8rem; color:var(--muted); margin-top:14px; }
   .hist div { padding:3px 0; }
   #close { float:right; border:none; background:none; font-size:1.2rem; }
-  #metrics { font-size:.85rem; color:var(--muted); margin-bottom:10px; }
+  #metrics { font-size:.85rem; color:var(--muted); margin-bottom:14px; }
 
-  #retrain { background:var(--card); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.08);
-             padding:16px 18px; margin-bottom:16px; }
+  /* 탭 */
+  .tabs { display:flex; gap:6px; margin-bottom:16px; background:#e2e8f0; padding:4px; border-radius:10px;
+          max-width:520px; }
+  .tab { flex:1; text-align:center; padding:9px 0; border-radius:8px; font-size:.88rem; font-weight:600;
+         color:var(--muted); cursor:pointer; }
+  .tab.active { background:#fff; color:#2563eb; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+  .view { display:none; }
+  .view.active { display:block; }
+  .card { background:var(--card); border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.08);
+          padding:16px 18px; margin-bottom:16px; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .table-wrap { overflow-x:auto; }
+  .thumb-link { color:#2563eb; font-size:.82rem; }
+  h2.section { font-size:1rem; margin:22px 0 8px; }
+  #fbList div { background:var(--card); border-radius:8px; padding:10px 12px; margin-bottom:8px;
+                box-shadow:0 1px 3px rgba(0,0,0,.06); font-size:.87rem; }
+  #fbList .fb-meta { color:var(--muted); font-size:.76rem; margin-top:4px; }
+  .empty { color:var(--muted); font-size:.85rem; padding:10px 0; }
+
+  /* AI 재학습 센터 */
   #retrain h2 { font-size:1rem; margin-bottom:2px; }
   #retrain .sub { margin-bottom:12px; }
   .rt-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
@@ -55,6 +75,9 @@
                 max-height:150px; overflow-y:auto; white-space:pre-wrap; display:none; }
   .rt-result { display:none; margin-top:10px; font-size:.85rem; }
   .rt-result b { color:#16a34a; }
+  .chart-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; }
+  .chart-box { flex:1; min-width:280px; height:260px; position:relative; }
+  .chart-box.small { flex:0 0 220px; height:220px; }
 </style>
 </head>
 <body>
@@ -62,24 +85,85 @@
 <div class="sub">접수 → 배정 → 처리중 → 완료 · O/X 검수 · 수동 재분류</div>
 <div id="metrics"></div>
 
-<div id="retrain">
-  <h2>AI 재학습 센터</h2>
-  <div class="sub">담당자 검수(O/X)로 쌓인 데이터를 반영해 분류 모델을 주기적으로 재학습합니다.</div>
-  <div class="rt-top">
-    <div class="rt-stat">누적 학습 데이터 <b id="rtCount">0</b>건 · 현재 모델 정확도 <b id="rtAcc">-</b>
-      <span class="rt-badge" id="rtBadge">대기</span></div>
-    <button class="primary" id="btnRetrain">재학습 시작</button>
-  </div>
-  <div class="rt-bar"><div class="rt-bar-fill" id="rtBar"></div></div>
-  <pre class="rt-console" id="rtConsole"></pre>
-  <div class="rt-result" id="rtResult"></div>
+<div class="tabs">
+  <div class="tab active" data-view="viewDb">DB 관리</div>
+  <div class="tab" data-view="viewRetrain">AI 재학습센터</div>
+  <div class="tab" data-view="viewReview">재분류 및 검수</div>
 </div>
 
-<table>
-  <thead><tr><th>#</th><th>등급</th><th>점수</th><th>유형</th><th>행정동</th><th>누적</th>
-      <th>담당</th><th>상태</th><th>검수 사유</th><th>접수 시각</th></tr></thead>
-  <tbody id="list"></tbody>
-</table>
+<!-- ---------- DB 관리 ---------- -->
+<div class="view active" id="viewDb">
+  <div class="card">
+    <div class="filters">
+      <select id="dbFilterStatus">
+        <option value="">전체 상태</option>
+        <option>접수</option><option>배정</option><option>처리중</option><option>완료</option>
+      </select>
+      <select id="dbFilterCat">
+        <option value="">전체 유형</option>
+        <option>도로 파손</option><option>쓰레기 무단투기</option><option>가로등 고장</option><option>기타</option>
+      </select>
+      <input type="text" id="dbFilterDong" placeholder="행정동 검색">
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="dbTable">
+      <thead><tr>
+        <th>#</th><th>접수 시각</th><th>유형(AI)</th><th>신고자 선택</th><th>행정동</th>
+        <th>누적</th><th>담당</th><th>상태</th><th>우선순위</th><th>확신도</th><th>사진</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h2 class="section">건의사항</h2>
+  <div id="fbList"></div>
+</div>
+
+<!-- ---------- AI 재학습센터 ---------- -->
+<div class="view" id="viewRetrain">
+  <div id="retrain" class="card">
+    <h2>AI 재학습 센터</h2>
+    <div class="sub">담당자 검수(O/X)로 쌓인 데이터 + seed_images 시드 사진으로 분류 모델을 실제로 파인튜닝합니다.</div>
+    <div class="rt-top">
+      <div class="rt-stat">누적 학습 데이터 <b id="rtCount">0</b>건 · 현재 모델 정확도 <b id="rtAcc">-</b>
+        <span class="rt-badge" id="rtBadge">대기</span></div>
+      <button class="primary" id="btnRetrain">재학습 시작</button>
+    </div>
+    <div class="rt-bar"><div class="rt-bar-fill" id="rtBar"></div></div>
+    <pre class="rt-console" id="rtConsole"></pre>
+    <div class="rt-result" id="rtResult"></div>
+
+    <div class="chart-row">
+      <div class="chart-box"><canvas id="rtLineChart"></canvas></div>
+      <div class="chart-box small"><canvas id="rtClassChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="section" style="margin-top:0">모델 버전 히스토리</h2>
+    <div class="table-wrap">
+      <table id="rtHistoryTable">
+        <thead><tr><th>버전</th><th>완료 시각</th><th>학습 데이터</th><th>정확도 변화</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- 재분류 및 검수 ---------- -->
+<div class="view" id="viewReview">
+  <div class="card">
+    <label><input type="checkbox" id="reviewShowAll"> 전체 민원 표시 (기본: 검수 필요 건만)</label>
+  </div>
+  <div class="table-wrap">
+    <table id="reviewTable">
+      <thead><tr><th>#</th><th>등급</th><th>점수</th><th>유형</th><th>행정동</th><th>누적</th>
+          <th>담당</th><th>상태</th><th>검수 사유</th><th>접수 시각</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
 
 <div id="detail">
   <button id="close">✕</button>
@@ -115,11 +199,67 @@
 <script>
 const $ = id => document.getElementById(id);
 let current = null;
+let allRows = [];
 
+// ---------- 탭 전환 ----------
+document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  tab.classList.add('active');
+  $(tab.dataset.view).classList.add('active');
+}));
+
+// ---------- 공통 데이터 로드 ----------
 async function load() {
-  const rows = await (await fetch('/api/complaints')).json();
-  $('list').innerHTML = rows.map(r => `
-    <tr data-id="${r.id}" class="${current===r.id?'sel':''}">
+  allRows = await (await fetch('/api/complaints')).json();
+  allRows.sort((a, b) => b.priority_score - a.priority_score);
+  renderDbTable();
+  renderReviewTable();
+  const m = await (await fetch('/api/metrics')).json();
+  $('metrics').textContent = m.reviewed
+    ? `검수 ${m.reviewed}건 중 O ${m.correct}건 — 분류 정확도(신뢰도 지표) ${(m.accuracy*100).toFixed(1)}%`
+    : '검수 이력 없음 — O/X 검수를 진행하면 정확도 지표가 집계됩니다.';
+}
+
+// ---------- DB 관리 ----------
+function renderDbTable() {
+  const statusF = $('dbFilterStatus').value, catF = $('dbFilterCat').value, dongF = $('dbFilterDong').value.trim();
+  const rows = allRows.filter(r =>
+    (!statusF || r.status === statusF) &&
+    (!catF || r.category === catF) &&
+    (!dongF || (r.admin_dong||'').includes(dongF)));
+  document.querySelector('#dbTable tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.id}</td>
+      <td>${(r.reported_at||'').slice(0,16)}</td>
+      <td>${r.category}</td>
+      <td>${r.category_user || '-'}</td>
+      <td>${r.admin_dong||''}</td>
+      <td>${r.report_count}</td>
+      <td>${r.department||'<i style="color:#b91c1c">미배정</i>'}</td>
+      <td>${r.status}</td>
+      <td>${r.priority_score} · <span class="grade g-${r.priority_grade}">${r.priority_grade}</span></td>
+      <td>${r.confidence != null ? (r.confidence*100).toFixed(0)+'%' : '-'}</td>
+      <td>${r.image_url ? `<a class="thumb-link" href="${r.image_url}" target="_blank">보기</a>` : '-'}</td>
+    </tr>`).join('') || '<tr><td colspan="11" class="empty">조건에 맞는 민원이 없습니다.</td></tr>';
+}
+['dbFilterStatus','dbFilterCat','dbFilterDong'].forEach(id =>
+  $(id).addEventListener('input', renderDbTable));
+
+async function loadFeedback() {
+  const list = await (await fetch('/api/feedback')).json();
+  $('fbList').innerHTML = list.length ? list.map(f => `
+    <div>${f.content}
+      <div class="fb-meta">${(f.submitted_at||'').slice(0,16)}${f.contact ? ' · 연락처 '+f.contact : ''}</div>
+    </div>`).join('') : '<div class="empty">접수된 건의사항이 없습니다.</div>';
+}
+
+// ---------- 재분류 및 검수 ----------
+function renderReviewTable() {
+  const showAll = $('reviewShowAll').checked;
+  const rows = showAll ? allRows : allRows.filter(r => r.review_reason);
+  document.querySelector('#reviewTable tbody').innerHTML = rows.map(r => `
+    <tr class="clickable ${current===r.id?'sel':''}" data-id="${r.id}">
       <td>${r.id}</td>
       <td><span class="grade g-${r.priority_grade}">${r.priority_grade}</span></td>
       <td><b>${r.priority_score}</b></td>
@@ -130,14 +270,11 @@ async function load() {
       <td>${r.status}</td>
       <td class="reason">${r.review_reason||''}</td>
       <td>${(r.reported_at||'').slice(0,16)}</td>
-    </tr>`).join('');
-  document.querySelectorAll('#list tr').forEach(tr =>
-    tr.addEventListener('click', () => open(rows.find(r => r.id == tr.dataset.id))));
-  const m = await (await fetch('/api/metrics')).json();
-  $('metrics').textContent = m.reviewed
-    ? `검수 ${m.reviewed}건 중 O ${m.correct}건 — 분류 정확도(신뢰도 지표) ${(m.accuracy*100).toFixed(1)}%`
-    : '검수 이력 없음 — O/X 검수를 진행하면 정확도 지표가 집계됩니다.';
+    </tr>`).join('') || '<tr><td colspan="10" class="empty">검수가 필요한 민원이 없습니다.</td></tr>';
+  document.querySelectorAll('#reviewTable tr[data-id]').forEach(tr =>
+    tr.addEventListener('click', () => open(allRows.find(r => r.id == tr.dataset.id))));
 }
+$('reviewShowAll').addEventListener('change', renderReviewTable);
 
 async function open(r) {
   current = r.id;
@@ -186,8 +323,29 @@ $('btnStatus').addEventListener('click', async () => {
 });
 $('close').addEventListener('click', () => { $('detail').style.display='none'; current=null; load(); });
 
-// ---------- AI 재학습 센터 (시연용 시뮬레이션 — app/retrain.py 참고) ----------
+// ---------- AI 재학습 센터 ----------
 let rtPolling = null;
+
+const rtLineChart = new Chart($('rtLineChart'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: '정확도', data: [], borderColor:'#16a34a', backgroundColor:'#16a34a22', yAxisID:'y', tension:.25 },
+    { label: 'loss', data: [], borderColor:'#dc2626', backgroundColor:'#dc262622', yAxisID:'y1', tension:.25 },
+  ]},
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ title:{ display:true, text:'실시간 학습 곡선 (epoch별 검증셋 실측)' } },
+    scales: {
+      y: { position:'left', min:0, max:1, title:{display:true,text:'정확도'} },
+      y1:{ position:'right', min:0, grid:{drawOnChartArea:false}, title:{display:true,text:'loss'} },
+    }}
+});
+
+const rtClassChart = new Chart($('rtClassChart'), {
+  type: 'doughnut',
+  data: { labels: [], datasets: [{ data: [], backgroundColor:['#2563eb','#f59e0b','#16a34a','#94a3b8'] }] },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ title:{ display:true, text:'학습 데이터 구성' } } }
+});
 
 async function rtIdleStats() {
   const m = await (await fetch('/api/metrics')).json();
@@ -198,11 +356,24 @@ async function rtIdleStats() {
 function rtRender(s) {
   if (s.state === 'idle') return;
   $('rtCount').textContent = s.sample_count;
-  $('rtAcc').textContent = (s.accuracy * 100).toFixed(1) + '%';
+  if (s.accuracy != null) $('rtAcc').textContent = (s.accuracy * 100).toFixed(1) + '%';
   $('rtBar').style.width = s.progress + '%';
   $('rtConsole').style.display = 'block';
   $('rtConsole').textContent = s.logs.join('\n');
   $('rtConsole').scrollTop = $('rtConsole').scrollHeight;
+
+  if (s.history && s.history.length) {
+    rtLineChart.data.labels = s.history.map(h => 'E' + h.epoch);
+    rtLineChart.data.datasets[0].data = s.history.map(h => h.accuracy);
+    rtLineChart.data.datasets[1].data = s.history.map(h => h.loss);
+    rtLineChart.update();
+  }
+  if (s.class_counts && Object.keys(s.class_counts).length) {
+    rtClassChart.data.labels = Object.keys(s.class_counts);
+    rtClassChart.data.datasets[0].data = Object.values(s.class_counts);
+    rtClassChart.update();
+  }
+
   if (s.state === 'running') {
     $('rtBadge').textContent = `학습 중 · Epoch ${s.epoch}/${s.total_epochs}`;
     $('rtBadge').className = 'rt-badge on';
@@ -217,6 +388,13 @@ function rtRender(s) {
       `(+${delta}%p) · 학습 데이터 ${s.sample_count}건 반영`;
     clearInterval(rtPolling); rtPolling = null;
     $('btnRetrain').disabled = false;
+    loadRetrainHistory();
+  } else if (s.state === 'error') {
+    $('rtBadge').textContent = '학습 실패';
+    $('rtBadge').className = 'rt-badge';
+    clearInterval(rtPolling); rtPolling = null;
+    $('btnRetrain').disabled = false;
+    alert(s.logs[s.logs.length - 1]);
   }
 }
 
@@ -229,9 +407,35 @@ $('btnRetrain').addEventListener('click', async () => {
   rtPolling = setInterval(async () => rtRender(await (await fetch('/api/retrain/status')).json()), 700);
 });
 
+async function loadRetrainHistory() {
+  const hist = await (await fetch('/api/retrain/history')).json();
+  document.querySelector('#rtHistoryTable tbody').innerHTML = hist.length ? hist.slice().reverse().map(h => `
+    <tr>
+      <td>v${h.version}</td>
+      <td>${h.completed_at}</td>
+      <td>${h.sample_count}건</td>
+      <td>${(h.baseline_accuracy*100).toFixed(1)}% → ${(h.target_accuracy*100).toFixed(1)}%</td>
+    </tr>`).join('') : '<tr><td colspan="4" class="empty">아직 완료된 학습 이력이 없습니다.</td></tr>';
+}
+
+async function rtHydrate() {
+  // 페이지를 새로 열었을 때 이미 진행 중이거나 방금 끝난 학습 잡을 화면에 반영
+  const s = await (await fetch('/api/retrain/status')).json();
+  if (s.state === 'idle') return;
+  rtRender(s);
+  if (s.state === 'running') {
+    $('btnRetrain').disabled = true;
+    rtPolling = setInterval(async () => rtRender(await (await fetch('/api/retrain/status')).json()), 700);
+  }
+}
+
 rtIdleStats();
+rtHydrate();
+loadRetrainHistory();
 load();
+loadFeedback();
 setInterval(load, 15000);
+setInterval(loadFeedback, 20000);
 </script>
 </body>
 </html>
