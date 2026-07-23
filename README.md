@@ -23,8 +23,7 @@ python3 -m app.server          # http://127.0.0.1:8000 에서 실행
 
 Gemini API 키는 [Google AI Studio](https://aistudio.google.com/apikey)에서 구글 로그인 후 무료로 발급받을 수 있다.
 
-담당자 화면의 "AI 재학습 센터"는 더 이상 시뮬레이션이 아니다. `seed_images/`의 시드 사진과
-담당자 검수(O/X)로 확정된 신고 사진을 모아 ImageNet 사전학습 MobileNetV3-Small 위에 새
+`seed_images/`의 시드 사진과 담당자 검수(O/X)로 확정된 신고 사진을 모아 ImageNet 사전학습 MobileNetV3-Small 위에 새
 분류 헤드를 실제로 학습시키고, 학습이 끝나면 `model/finetuned.pt`로 저장해 다음 분류부터
 자동으로 적용한다(`app/retrain.py`). 화면에 보이는 진행률·loss·정확도는 매 epoch 검증셋에서
 직접 측정한 실측치다.
